@@ -1,0 +1,11 @@
+Model,Type,Year,Color,Run,Actual Price,Estimated_median
+BMW,sedan,2008,black,180000,9200,9750
+Mersedes,Jeep,2010,black,116989,58000,30000
+Mersedes,sedan,2012,black,78951,20000,20000
+Mersedes,Jeep,2006,gray,170000,12000,10000
+Mersedes,Jeep,2008,gray,145000,19900,14000
+BMW,sedan,2010,gray,106000,14000,10750
+BMW,sedan,2012,gray,173000,16500,15750
+Mersedes,sedan,2006,red,140000,4200,6000
+Mersedes,sedan,2008,red,153000,6900,7000
+BMW,Jeep,2012,red,100000,38000,22500

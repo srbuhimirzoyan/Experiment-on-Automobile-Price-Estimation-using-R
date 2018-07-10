@@ -1,0 +1,291 @@
+---
+title: "Project_Car_Price Estimation"
+author: "Srbuhi and Vazgen"
+date: "May 8, 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+The goal of our experiment is analysis of peoples perception about car prices influenced by different factors.
+
+Response variable: Car price estimates.
+Blocking factor1: Car Model with 2 levels: Mercedes, BMW.
+Blocking factor 2 : Cars (#1-10) 
+Treatment factor 1: Car Type with 2 levels: Jeep, Sedan.
+Treatment factor 2: Color with 3 levels: Black, Grey, Red.
+Treatment factor 3: Year with 4 levels :2006, 2008, 2010, 2012.
+Uncontrolled variable: Run in kms.
+
+The experiment was conducted using google form survey.  The survey consists of questions related to personal information about the respondent (gender,age, preferred color, whether the respondent is driver or no) and car images with year and run.  The respondents were asked to write the price of the car in USD based on the image of the car they see (Brand, Model and Color) and its parameters (Year and Run).
+
+We aim to see how the car price estimate is formed given picture of the car and two parameters. We assumed that the picture or the appearance of the car is responsible for three factors: Brand, Color and Model. Two other parameters the impact of which we would like to evaluate, are the Year and Run of the car.
+So we would like to see which of the noted factors have decisive impact on the estimate.
+Moreover, since the survey is based on actual data, we are going to see whether the actual and estimated prices are different and to which extent they differ.
+
+Before creating the survey we had to decide how optimally to choose the cars and the parameters we want to estimate. For that reason, we performed the following steps to obtain an optimal number and combination of treatments and blocks.
+We are observing cars as blocks in our design, since we don't want to analyze variations in estimations because of the order of cars or the appearance of colors. We also consider Car Model (Mercedes, BMW) as a nuisance factor, because there are a lot of people preferring just one of them, so we don't want to analyze whether this factor has impact on the decision. Here is the code:
+```{r}
+brand<-c("BMW","Mersedes")
+brand<-factor(brand)
+model<-c("Jeep","sedan")
+model<-factor(model)
+year<-c(2006,2008,2010,2012)
+year<-factor(year)
+color<-c("black","gray","red")
+color<-factor(color)
+my_list<-list(brand,model,year,color)
+
+cand <- expand.grid(my_list)
+
+library(AlgDesign)
+set.seed(1)
+# This will show 10 cars to each respondent
+a1 <- optBlock(withinData= cand, blocksizes = 10, nRepeats = 100)
+des <- as.data.frame(a1$design)
+des
+```
+So we have found cars with the parameters presented above from Armenian auto-selling sites (auto.am and list.am) and made a survey. We have 112 responses. 64.3% of the respondents are drivers and 35.7% are not drivers. We have 64.3% males and 35.7% females.Majority of the respondents are 24-29 (33.9%)  and 30-35(31.3%) years old. 49.1% of the respondents preferred black colour, 25%-gray, 15.2%-none of the noted colour and 10.7%-red.
+
+
+First of all, we will read the survey results and the survey object detailed summary to R from two separate csv files and will arrange the data. 
+
+```{r}
+auto<-read.csv("auto_rep.csv")
+auto$Driver<-factor(auto$Driver,levels = c("No","Yes"), labels =c("Not Driver","Driver" ))
+auto$Sex<-factor(auto$Sex,levels=c("Female", "Male"), labels =c("Female","Male" ))
+auto$Age<-factor(auto$Age,levels=c("18-23", "24-29" ,"30-35",">35"))
+auto$Favorite.Color<-factor(auto$Favorite.Color,levels=c("Black", "Gray" ,"Red","None"))
+str(auto)
+auto_actual<-read.csv("auto.csv")
+str(auto_actual)
+
+```
+Since we have one actual car price for 10 cars and 112 estimates on each of them, we will use one-sample t-test for all cars to see whether there is a significant difference between the sample mean and the actual value.
+
+Before comparing estimations with actual price we shall check assumptions of normality.
+
+```{r}
+qqnorm(auto$car.1)
+qqline(auto$car.1)
+shapiro.test(auto$car.1)
+
+```
+From plot we can see that there are points that are far from line and the shapiro test confirms that the sample is not normally distributed. So we will use the one-sample Wilcoxon signed rank test which is a non-parametric alternative to one-sample t-test when the data cannot be assumed to be normally distributed. 
+It's used to determine whether the median of the sample is equal to a known standard value. Our hypotheses for this tests are the following:
+H0: Median estimated price is equal to the actual price
+H1:Median estimated price is not equal to the actual price
+Let's take 0.01 level of significance.
+We will perform wilcox test with the same hypotheses and confidence level .
+
+```{r}
+wilcox.test(auto$car.1, mu = auto_actual$Actual.Price[1], alternative = "two.sided")
+
+wilcox.test(auto$car.2,mu=auto_actual$Actual.Price[2],alternative = "two.sided")
+
+wilcox.test(auto$car.3,mu=auto_actual$Actual.Price[3],alternative = "two.sided")
+
+t.test(auto$car.4,mu=auto_actual$Actual.Price[4],alternative = "two.sided")
+
+wilcox.test(auto$car.5,mu=auto_actual$Actual.Price[5],alternative = "two.sided")
+
+wilcox.test(auto$car.6,mu=auto_actual$Actual.Price[6],alternative = "two.sided")
+
+wilcox.test(auto$car.7,mu=auto_actual$Actual.Price[7],alternative="two.sided")
+
+wilcox.test(auto$car.8,mu=auto_actual$Actual.Price[8],alternative="two.sided")
+
+wilcox.test(auto$car.9,mu=auto_actual$Actual.Price[9],alternative="two.sided")
+
+wilcox.test(auto$car.10,mu=auto_actual$Actual.Price[10],alternative="two.sided")
+
+library(ggplot2)
+Cars<- c(1,2,3,4,5,6,7,8,9,10)
+ActualPrice<-auto_actual$Actual.Price
+Estimated_median<-auto_actual$Estimated_median
+comp<-data.frame(Cars,ActualPrice,Estimated_median)
+comp
+library(reshape2)
+nyxlong <- melt(comp, id=c("Cars"))
+
+ggplot(nyxlong) +
+  geom_bar(aes(x = Cars, y = value, fill = variable), 
+           stat="identity", position = "dodge", width = 0.7) +
+  scale_fill_manual("Result\n", values = c("red","blue"), 
+                    labels = c("Actual Price", "Estimation")) +
+  labs(x="\nCars",y="Price\n") +
+  theme_bw(base_size = 14)
+
+
+```
+From the test results we can see that for cars 1,3,4,7 and 9 p-value is greater than alpha=0.01, so we fail to reject H0 and can say that overall the estimated price is not significantly different from the actual price.  For cars 2,5,6,8 and 10 p-value is less than alpha=0.01, so we reject H0 and can say that the actual price is significantly different from the estimated price.
+So, half of the answers are close to the actual price and half is significantly different.
+The same can be seen from the plot. We can see that there are actual and estimated price differences for nearly half of the cars.
+
+Now we want to see the relationship between estimate and our numeric variables. For that reason, we will transform out data to be able to conduct analysis. 
+
+```{r}
+
+auto$type<-paste(rep(auto_actual$Type,times=11,2))
+auto$Model<-paste(rep(auto_actual$Model,times=11,2))
+auto$run<-paste(rep(auto_actual$Run,times=11,2))
+auto$year<-paste(rep(auto_actual$Year,times=11,2))
+auto$actual_price<-paste(rep(auto_actual$Actual.Price,times=11,2))
+auto$color<-paste(rep(auto_actual$Color,times=11,2))
+auto_actual$variable<-colnames(auto)[4:13]
+datalong<-melt(auto)
+str(datalong)
+datalong$type<-factor(datalong$type)
+datalong$Model<-factor(datalong$Model)
+datalong$color<-factor(datalong$color)
+datalong$run<-as.numeric(datalong$run)
+datalong$year<-as.numeric(datalong$year)
+datalong$actual_price<-as.numeric(datalong$actual_price)
+library(dplyr)
+df1 <- left_join(datalong, auto_actual, by='variable')
+df1$run<-NULL
+df1$year<-NULL
+df1$type<-NULL
+df1$color<-NULL
+df1$Estimated_median<-NULL
+df1$actual_price<-NULL
+df1$Model.x<-NULL
+colnames(df1)[6] <- "Estimate"
+colnames(df1)[5] <- "Car"
+df1$Car<-factor(df1$Car)
+str(df1)
+
+ggplot(df1, aes(x=Run, y=Estimate))+geom_point()+ggtitle("Relationship between Estimated price and Run")+geom_smooth(method = "lm", se=FALSE)
+
+ggplot(df1, aes(x=Year, y=Estimate))+geom_point()+ggtitle("Relationship between Estimated price and Year")+geom_smooth(method = "lm", se=FALSE)
+
+
+
+```
+
+As it can be seen from the plots, we have negative linear relationship between estimated price and run and positive linear pattern for estimated price and year. 
+
+
+Now, we would like to see which factors have significant impact on the car price estimate. To find it out, let's first visualize our data.
+
+```{r}
+library(ggplot2)
+ggplot(df1,aes(x=Color,y=Estimate))+geom_boxplot()+stat_summary(fun.y = mean, geom="point", size=3.5, colour="red")+ggtitle("Estimated price by Color")
+
+
+ggplot(df1,aes(x=Type,y=Estimate))+geom_boxplot()+stat_summary(fun.y = mean, geom="point", size=3.5, colour="red")+ggtitle("Estimated price by Car Type")
+
+ggplot(df1,aes(x=Color,y=Estimate))+geom_boxplot()+facet_grid(.~Type)+stat_summary(fun.y = mean, geom="point", size=3.5, colour="red")+ggtitle("Estimated price by Car Color and Car Type")
+
+ggplot(df1, aes(x=Color, y=Estimate, colour=Type))+
+stat_summary(fun.y = mean, geom="point")+
+stat_summary(fun.y = mean, geom="line", aes(group=Type))+ xlab("Car color")+ylab("Estimated_median price ")+ggtitle("Interaction Plot")
+
+scientific=FALSE
+
+```
+
+To find out the main effects of categorical variables on estimate, we observe estimated price by color, car type and their interaction.
+As it can be seen from the boxplots, the price decreases as the color goes from black to red. It is interesting, since 49.1% of the respondents noted that their preferred colour is black. Also, 
+we can see from the boxplot that estimated price is lower for sedans rather than for jeeps, which mean people tend to give jeeps higher price than sedans.
+For the interaction we can see that in case of sedan the estimated price goes down as the color changes from black to gray and then red. However,for the jeep we can see that the tendency changes and even the highest price is given for black jeeps, the lowest price now is given to gray ones and we have a substantial rise in estimation for red jeeps.
+As it can be seen from the interaction plot, since the lines are crossing, we have interaction here. We can also see that for black and red cars the type of car does matter, because we have large gap between the estimated prices. However, for gray color the price for jeeps and sedans is not extremely different. So when we have red sedan the price doesn't decrease but for red jeep we have a huge increase in car price estimation. 
+
+To check what other factors may have affected estimate, we will construct a multiple regression model. 
+
+```{r}
+round(cor(df1[sapply(df1, function(x) !is.factor(x))]),2)
+library(GGally)
+ggpairs(auto_actual)
+
+```
+From the correlation matrix we can see that the the estimated price has moderate positive correlation with the year and moderate negative correlation with Run. There is also -0.55 correlation coefficient between the run and year, however the relationship is not strong enough to remove one of them now from further consideration.
+To see which factors related to respondents worth being included in the regression model,we will conduct separate Anova tests. We will test how Estimate changes on Sex, Drive and Age.
+Hypotheses are the following:
+H0: Mean estimates by the treatments of the factor are equal (Sex, Drive, Age)
+H1: At least one Mean estimates by the treatments of the factor is different(Sex, Drive, Age)
+We will use confidence level of 0.1.
+
+```{r}
+fit1<-aov(Estimate~Age,data = df1)
+summary(fit1)
+fit2<-aov(Estimate~Sex,data=df1)
+summary(fit2)
+fit3<-aov(Estimate~Driver,data = df1)
+summary(fit3)
+
+```
+
+From the test results we can see that Estimate is different by Sex and Driver. So we will include them in the model.
+Now let's check the normality and variance equality assumtions for cars individualy.
+
+```{r}
+for (i in unique(df1$Car)){
+  x<-df1[df1$Car==i,]
+  print(shapiro.test(x$Estimate)$p.value)
+}
+
+bartlett.test(Estimate~Car,data=df1)
+
+```
+From the results we can see that neither normality, nor variance equality assumptions are not held.
+
+Now we want to see which factors related to Car appearance have impact on estimate and should be included in our model. To explore it, we will conduct ANOVA test with type, color and model as blocking variable. 
+
+```{r}
+col_fit<-aov(Estimate~Model.y+Type+Color+Color:Type,data=df1)
+
+summary(col_fit)
+
+```
+As it can be seen from the summary of the model, both type, color and their intersection have effect on estimate, so we will include them in the model. Model is not significant, but we are not interested in it, since we observe it as blocking variable.
+So now we are going to construct a multiple regression model with the variables which have influence on our estimates (concluded from plots and conducted anova tests). We will observe the following pairs:
+
+```{r}
+model1<-lm(Estimate~Run+Year+Sex+Color+Type+Type:Color,data=df1)
+summary(model1)
+
+library(car)
+vif(model1)
+model2<-lm(Estimate~Run+Year+Sex+Driver+Color+Type+Type:Color,data=df1)
+summary(model2)
+
+model3<-lm(Estimate~Run+Year+Color+Type+Driver+Type:Color,data=df1)
+summary(model3)
+
+
+```
+We conducted 3 different models: one with both driver and Sex, one including Driver and one including Sex.
+We can see that driver's presence in the model makes sex not significant, so we can assume that Sex is the decisive factor and will only use it in the multiple regression model.
+So for now our model is model3. Let's check the residuals and then try to explain the coefficients.
+
+```{r}
+
+ggplot()+geom_point(aes(x=model3$fitted.values,y=model3$residuals))+labs(x="Fitted", y="Residuals", title="Residuals vs Fitted plot")
+
+
+```
+As we can see from the results, normality assumption is violated (p-value is less than alpha=0.05). There is also increasing variance as the price increases, so now we will try to build a log-linear model trying to fix these problems.
+
+```{r}
+model5<-lm(log(Estimate)~Run+Year+Driver+Color+Type+Type:Color,data=df1,scientific=FALSE )
+summary(model5)
+
+model6<-aov(log(Estimate)~Model.y+Color+Type+Color:Type,data=df1, scientific=FALSE)
+summary(model6)
+
+
+ggplot()+geom_point(aes(x=model5$fitted.values,y=model5$residuals))+labs(x="Fitted", y="Residuals", title="Residuals vs Fitted plot for log-linear model")
+
+```
+
+For log-linear model residuals are more or less equally distributed on two sides of 0. So we can analyze the log-linear model and see how the transformation to log-linear improved our model.
+log(Estimate)=0.16*100=16% which means that one unit change in year will bring to approximately 16% in estimate compared to previous year.We can say that actually people do not tend to pay attention to Run because it is not significant.Regarding driver factor we assume that when a person is driver his evaluation is 10% greater than evaluation of no driver.
+54 percent of our experiment is explained by our categorical variables. 
+
+(MODEL6)
+In order to explain the other factors of model5 we need to conduct new model with those factors.(anova to explain categorical variables)
+From the result it is seen that color and type have effects and there ineraction,for example,in all cases where car is red it decrease estimation except the case when it is Jeep.
+
+
